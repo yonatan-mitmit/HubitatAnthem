@@ -7,7 +7,6 @@ metadata {
 
     capability "Actuator"
     capability "Initialize"
-    capability "Switch"
     capability "Refresh"
 
     // Add any additional capabilities or custom commands specific to your receiver
@@ -21,7 +20,7 @@ metadata {
     input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "DEBUG", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
 
     attribute "Model", "string"
-    attribute "Channels", "integer"
+    attribute "Inputs", "integer"
     attribute "Network Status", "string"
 
   }
@@ -75,6 +74,8 @@ def updated() {
 def initialize() {
   // Initialize the driver and set up any necessary connections or configurations
   telnetClose()
+  removeDataValue("Inputs")
+  removeDataValue("InputNames")
   // The connect method must be run in a delay, otherwise the disconnect handler will get into a loop. We must give it a chance to run first.
   runIn(connectDelay, connect)
 }
@@ -101,18 +102,6 @@ def onConnectInitialize() {
     }
 }
 
-def on() {
-  // Turn on the receiver
-}
-
-def off() {
-  // Turn off the receiver
-}
-
-def setLevel(level) {
-  // Set the volume level of the receiver
-}
-
 def refresh() {
   // Refresh the state of the receiver
   handlers["IDM"].query()
@@ -120,28 +109,23 @@ def refresh() {
 }
 
 
-def parse(String description) {
+def parse(String msg) {
   // Parse incoming events to generate events for the device
   logDebug("Parsing receiver command: ${description}")
 
-  // XXX: Is this still needed as we set ';' as the term character?
-  def tokens = description.split(';')
-
-  tokens.each { token ->
-    if (token.size() >= 2) {
-      def firstTwo = token.take(2)
-      if (firstTwo.matches(/Z\d/)) {
-        handleChildResponse(firstTwo[1], token[2..-1])
-        return
-      }
+  if (msg.size() >= 2) {
+    def firstTwo = msg.take(2)
+    if (firstTwo.matches(/Z\d/)) {
+      handleChildResponse(firstTwo[1], msg[2..-1])
+      return
     }
+  }
 
-    handlers.each { key, value -> 
-      if (token =~ value.pattern) {
-        logDebug("Calling command for ${key} (${value.description})")
-        value.parse(token)
-        return
-      }
+  handlers.each { key, value -> 
+    if (msg =~ value.pattern) {
+      logDebug("Calling command for ${key} (${value.description})")
+      value.parse(msg)
+      return
     }
   }
 }
@@ -168,39 +152,36 @@ def handleIDM(String description) {
 def handleICN(String msg) {
   // Handle the IDM command
   logDebug("Handling ICN command ${msg}")
-  //sendEvent(name: "Channels", value: msg.toInteger())
   msg = msg[3..-1]
-  updateDataValue("Channels", msg)
+  updateDataValue("Inputs", msg)
+  sendEvent(name: "Inputs", value: msg.toInteger())
 
   // When the number of channels changes, we need to update the names of channels
-  (1..msg.toInteger()).each { zone ->
-    sendMsg("IS${zone}IN?")
+  (1..msg.toInteger()).each { inp ->
+    sendMsg("IS${inp}IN?")
   }
 }
 
 def handleISdIN(String msg) {
-  logDebug("Handling ISdIN command ${msg} - ${number} - ${name}")
-  oldInputNames = getDataValue("inputNames") ?: "{}"
+  oldInputNames = getDataValue("InputNames") ?: "{}"
 
-  channelNames = new JsonSlurper().parseText(oldInputNames)
-
-  // Load old input names, if not null
-  //oldInputNames = getDataValue("inputNames")
-  //channelNames = [:]
-  //if (oldInputNames){ 
-  //} 
+  channelNames = new JsonSlurper().parseText(oldInputNames) as Map
 
   pattern = ~/^IS(\d+)IN(.*)/
   matches = msg =~ pattern
   def number = matches[0][1]
   def name = matches[0][2]
+  logDebug("Handling ISdIN command ${msg} - ${number} - ${name}")
   channelNames[number] = name
-  asJson = JsonOutput.toJson(channelNames)
-  updateDataValue("inputNames" , asJson)
+  updateDataValue("InputNames" , JsonOutput.toJson(channelNames))
 
   // Notify all children that the map of names changed
-  getChildDevices()?.each { child ->
-    child.inputNamesUpdated(asJson)
+  // If we have all the input names, we'll update the children
+  if (channelNames.size() == getDataValue("Inputs")?.toInteger()) {
+    logInfo("Input map changed, updating children with new input names: ${channelNames.values()}")
+    getChildDevices()?.each { child ->
+      child.inputNamesUpdated(channelNames)
+    }
   }
    
 }
