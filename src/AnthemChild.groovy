@@ -14,7 +14,7 @@ definition (
 
 preferences {
   // Add user-input preferences for the driver, such as IP address, port, authentication, etc.
-  input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "DEBUG", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
+  input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "INFO", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
   attribute "VolumeDB", "number"
 }
 
@@ -50,7 +50,7 @@ def parse(String msg) {
 }
 
 def handlePOW(String pow) {
-    logDebug "handlePOW: ${pow}"
+    logInfo("${device.getName()} - Power is ${pow == 1 ? "on" : "off"}")
     if (pow == "0") {
         sendEvent(name: "switch", value: "off")
     } else if (pow == "1") {
@@ -62,12 +62,10 @@ def handlePOW(String pow) {
 }
 
 def handleINP(String inp) {
-    logDebug "handleINP: ${inp}"
-
     channelNames = new JsonSlurper().parseText(getDataValue("inputNames") ?: "{}") as Map
-
     name = channelNames[inp] ?: "Input ${inp}"
-    
+
+    logInfo("${device.getName()} - Input is ${inp} : ${name}")
     sendEvent(name : "mediaInputSource", value : name)
 }
 
@@ -89,66 +87,66 @@ def handleMUT(String mut) {
 }
 
 def handleVOL(String vol) {
-    logDebug "handleVOL: ${vol}"
+    logInfo("${device.getName()} - Volume is ${vol}")
     sendEvent(name : "VolumeDB", value : vol.toDouble())
 }
 
 
 def on() {
-  logDebug "on() on zone ${state.zone}"
+  logInfo "${device.getName()} - Turning on"
   handlers["POW"].set("1")
 }
 
 def off() {
-  logDebug "off() on zone ${state.zone}"
+  logInfo "${device.getName()} - Turning off"
   handlers["POW"].set("0")
 }
 
 def setInputSource(name) {
-  logDebug "setInputSource(${name}) on zone ${state.zone}"
   reverseNameMap = new JsonSlurper().parseText(getDataValue("reverseInputNames") ?: "{}") as Map
+  logInfo "${device.getName()} - Setting input source to ${name} (Input ${reverseNameMap[name]})"
   handlers["INP"].set(reverseNameMap[name])
 }
 
 def mute() {
-    logDebug "mute() on zone ${state.zone}"
+    logInfo "${device.getName()} - Muting"
     handlers["MUT"].set("1")    
 }
 
 def unmute() {
-    logDebug "unmute() on zone ${state.zone}"
+    logInfo "${device.getName()} - Unmuting"
     handlers["MUT"].set("0")    
 }
 
 def setVolume(volume) {
-    logDebug "setVolume(${volume}) on zone ${state.zone}"
+    logInfo "${device.getName()} - Setting volume to ${volume}"
     handlers["PVOL"].set(volume)
 }
 
 def volumeUp() {
-    logDebug "volumeUp() on zone ${state.zone}"
+    logInfo "${device.getName()} - Volume Up"
     handlers["VUP"].set()
     handlers["PVOL"].query()
     handlers["VOL"].query()
 }
 
 def volumeDown() {
-    logDebug "volumeDown() on zone ${state.zone}"
+    logInfo "${device.getName()} - Volume Down"
     handlers["VDN"].set()
     handlers["PVOL"].query()
     handlers["VOL"].query()
 }
 
 def installed() {
-  logInfo "Installed with settings: ${settings}"
+  logInfo "${device.getName()} - Installed with settings: ${settings}"
 }
 
 def updated() {
-  logInfo "Updated with settings: ${settings} v1.0"
+  logInfo "${device.getName()} - Updated with settings: ${settings}"
 }
 
 def initialize() {
-    logInfo "Initializing Zone ${state.zone}"
+    logInfo "${device.getName()} - Initializing"
     handlers["POW"].query()
     handlers["INP"].query()
     handlers["PVOL"].query()

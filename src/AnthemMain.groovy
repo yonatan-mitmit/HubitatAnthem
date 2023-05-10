@@ -14,10 +14,10 @@ metadata {
 
   preferences {
     // Add user-input preferences for the driver, such as IP address, port, authentication, etc.
-    input name: "ip", type: "text", title: "IP Address", description: "The IP address of the receiver", required: true, displayDuringSetup: true, defaultValue: "192.168.1.72"
+    input name: "ip", type: "text", title: "IP Address", description: "The IP address of the receiver", required: true, displayDuringSetup: true, 
     input name: "port", type: "number", title: "Port", description: "The port of the receiver", required: true, defaultValue: "14999", displayDuringSetup: true, range: "1..65535"
     input name: "enabledReceiverZones", type: "enum", title: "Enabled Receiver Zones", description: "The zones that are enabled on the receiver", required: true, multiple: true, options: [[1:"Main"], [2:"Zone 2"]], displayDuringSetup: true, defaultValue: [1]
-    input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "DEBUG", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
+    input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "INFO", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
 
     attribute "Model", "string"
     attribute "Inputs", "integer"
@@ -52,16 +52,20 @@ Map anComm(Pattern pattern, Closure query, Closure parse, String description = "
   "IDM" :  anComm(~/^IDM/, { sendMsg("IDM?")}, {msg -> handleIDM(msg)}, "Query the model number of the receiver"),
   "ICN" :  anComm(~/^ICN/, { sendMsg("ICN?")}, {msg -> handleICN(msg)}, "Query number of input channels"),
   "ISdIN" : anComm(~/^IS\d+IN/, null, {msg -> handleISdIN(msg)}, "Query the name of an input channel"),
+  "WMAC" : anComm(~/^WMAC/, {sendMsg("WMAC?")}, {msg -> handleWMAC(msg)}, "Query the Wifi MAC address of the receiver"),
+  "EMAC" : anComm(~/^EMAC/, {sendMsg("EMAC?")}, {msg -> handleEMAC(msg)}, "Query the Ethernet MAC address of the receiver"),
+  "NMSVR" : anComm(~/^NMSVR/, {sendMsg("NMSVR?")}, {msg -> handleNMSVR(msg)}, "Query the software version of the receiver"),
+  "NMHVER" : anComm(~/^NMHVER/, {sendMsg("NMHVER?")}, {msg -> handleNMHVER(msg)}, "Query the hardware version of the receiver"),
 ]
 
 def installed() {
-  logInfo "Installed with settings: ${settings}"
+  logInfo "${device.getName()} - Installed with settings: ${settings}"
   initialize()
   updateChildren()
 }
 
 def updated() {
-  logInfo "Updated with settings: ${settings} v1.0"
+  logInfo "${device.getName()} - Updated with settings: ${settings} v1.0"
   telnetClose()
   sendEvent(name: "Network Status", value: "Disconnected")
   unschedule()
@@ -103,8 +107,14 @@ def onConnectInitialize() {
 }
 
 def refresh() {
+  logInfo("${device.getName()} - Refreshing receiver information")
   // Refresh the state of the receiver
   handlers["IDM"].query()
+  handlers["WMAC"].query()
+  handlers["EMAC"].query()
+  handlers["NMSVR"].query()
+  handlers["NMHVER"].query()
+  // The ICN handlers will also update the input names map. It's a bit yucky but we need it for async operation
   handlers["ICN"].query()
 }
 
@@ -131,7 +141,7 @@ def parse(String msg) {
 }
 
 def telnetStatus(String status) {
-  logInfo("Telnet status: ${status}.")
+  logInfo("${device.getName()} - Telnet status: ${status}.")
 
   sendEvent(name: "Network Status", value: "Disconnected")
 
@@ -178,7 +188,7 @@ def handleISdIN(String msg) {
   // Notify all children that the map of names changed
   // If we have all the input names, we'll update the children
   if (channelNames.size() == getDataValue("Inputs")?.toInteger()) {
-    logInfo("Input map changed, updating children with new input names: ${channelNames.values()}")
+    logInfo("${device.getName()} - Input map changed, updating children with new input names: ${channelNames.values()}")
     getChildDevices()?.each { child ->
       child.inputNamesUpdated(channelNames)
     }
@@ -186,11 +196,36 @@ def handleISdIN(String msg) {
    
 }
 
+def handleWMAC(String msg) {
+  logDebug("Handling WMAC command ${msg}")
+  updateDataValue("Wifi MAC", addColonsToMacString(msg[4..-1]))
+}
+
+def handleEMAC(String msg) {
+  logDebug("Handling EMAC command ${msg}")
+  updateDataValue("Ethernet MAC", addColonsToMacString(msg[4..-1]))
+}
+
+def handleNMSVR(String msg) {
+  logDebug("Handling NMSVR command ${msg}")
+  updateDataValue("Software Version", msg[5..-1])
+}
+
+def handleNMHVER(String msg) {
+  logDebug("Handling NMHVER command ${msg}")
+  updateDataValue("Hardware Version", msg[6..-1])
+}
+
+def addColonsToMacString(String macString) {
+  return macString.replaceAll(/.{2}(?=.)/, /$0:/)
+}
+
 def handleChildResponse(String zone, String s) {
     // Your logic for handling child response
     child = getChildDevice(getChildName(zone))
     if (!child) {
-      log.debug("Received command for disabled zone ${zone} : ${s}")
+      logDebug("Received command for disabled zone ${zone} : ${s}")
+      return
     }
     child.parse(s)
 }
@@ -200,6 +235,7 @@ def getChildName(child) {
 }
 
 def updateChildren() {
+  logInfo("Creating component devices for enabled zones")
   zoneEnabledMap = [:]
   (0..numberZones).each { zoneEnabledMap[it] = false }
   enabledReceiverZones.each { zoneEnabledMap[it] = true }
