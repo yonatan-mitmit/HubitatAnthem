@@ -32,7 +32,7 @@ automation workflows.
 
 We appreciate feedback and comments from the community! Feel free to share your thoughts, report issues, in the [GitHub repository](https://github.com/yonatan-mitmit/HubitatAnthem)
 
-## 
+## Notes
 This project is not affiliated with Anthem. I'm a fan of their excellent products and wanted to connect them to my Hubitat hub.
 
 ## License
