@@ -3,7 +3,9 @@
 This driver for Hubitat hub enables support for Anthem MRX x40 series Receivers. 
 This driver support multi-zone operation and allows for control of each receiver zone independentally. 
 
-![Anthem MRX 1140 8k](assets/mrx-1140-8k.png)
+![Anthem MRX 1140 8k](assets/mrx-1140-8k.png)[^1]
+
+[^1]: Image copyrights to Anthem. https://www.anthemav.com/
 
 ## Features
 
@@ -29,6 +31,9 @@ automation workflows.
 ## Feedback and Comments
 
 We appreciate feedback and comments from the community! Feel free to share your thoughts, report issues, in the [GitHub repository](https://github.com/yonatan-mitmit/HubitatAnthem)
+
+## 
+This project is not affiliated with Anthem. I'm a fan of their excellent products and wanted to connect them to my Hubitat hub.
 
 ## License
 This project is licensed under the MIT License.
