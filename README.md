@@ -1,7 +1,7 @@
 # Anthem MRX x40 Receiver Driver for Hubitat
 
 This driver for Hubitat hub enables support for Anthem MRX x40 series Receivers. 
-This driver support multi-zone operation and allows for control of each receiver zone independentally. 
+This driver support multi-zone operation and allows for control of each receiver zone independently. 
 
 ![Anthem MRX 1140 8k](assets/mrx-1140-8k.png)[^1]
 
