@@ -27,6 +27,10 @@ metadata {
   }
 }
 import groovy.transform.Field
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import java.util.regex.Pattern
+
 
 @Field static private int connectDelay = 1
 @Field static private int reconnectDelay = 5
@@ -38,13 +42,17 @@ import groovy.transform.Field
   2 : "Zone 2"
 ]
 
-Map anComm(Closure send, Closure parse, String description = "") {
-  [ "send" : send, "parse" : parse, "description" : description ]
+Map anComm(Pattern pattern, Closure query, Closure parse, String description = "") {
+  [  "pattern" : pattern,
+     "query" : query, 
+     "parse" : parse, 
+     "description" : description ]
 }
 
 @Field Map handlers = [
-  "IDM" : anComm({ sendMsg("IDM?")}, {msg -> handleIDM(msg)}, "Query the model number of the receiver"),
-  "ICN" : anComm({ sendMsg("ICN?")}, {msg -> handleICN(msg)}, "Query number of input channels")
+  "IDM" :  anComm(~/^IDM/, { sendMsg("IDM?")}, {msg -> handleIDM(msg)}, "Query the model number of the receiver"),
+  "ICN" :  anComm(~/^ICN/, { sendMsg("ICN?")}, {msg -> handleICN(msg)}, "Query number of input channels"),
+  "ISdIN" : anComm(~/^IS\d+IN/, null, {msg -> handleISdIN(msg)}, "Query the name of an input channel"),
 ]
 
 def installed() {
@@ -107,8 +115,8 @@ def setLevel(level) {
 
 def refresh() {
   // Refresh the state of the receiver
-  handlers["IDM"].send()
-  handlers["ICN"].send()
+  handlers["IDM"].query()
+  handlers["ICN"].query()
 }
 
 
@@ -128,12 +136,10 @@ def parse(String description) {
       }
     }
 
-    if (token.size() >= 3) {
-      def firstThree = token.take(3)
-      def command = handlers[firstThree]
-      if (command) {
-        logDebug("Calling command for ${firstThree} (${command.description})")
-        command.parse(token[3..-1])
+    handlers.each { key, value -> 
+      if (token =~ value.pattern) {
+        logDebug("Calling command for ${key} (${value.description})")
+        value.parse(token)
         return
       }
     }
@@ -156,19 +162,52 @@ def handleIDM(String description) {
   // Handle the IDM command
   logDebug("Handling IDM command: ${description}")
   //sendEvent(name: "Model", value: description)
-  updateDataValue("Model", description)
+  updateDataValue("Model", description[3..-1])
 }
 
 def handleICN(String msg) {
   // Handle the IDM command
   logDebug("Handling ICN command ${msg}")
   //sendEvent(name: "Channels", value: msg.toInteger())
+  msg = msg[3..-1]
   updateDataValue("Channels", msg)
+
+  // When the number of channels changes, we need to update the names of channels
+  (1..msg.toInteger()).each { zone ->
+    sendMsg("IS${zone}IN?")
+  }
+}
+
+def handleISdIN(String msg) {
+  logDebug("Handling ISdIN command ${msg} - ${number} - ${name}")
+  oldInputNames = getDataValue("inputNames") ?: "{}"
+
+  channelNames = new JsonSlurper().parseText(oldInputNames)
+
+  // Load old input names, if not null
+  //oldInputNames = getDataValue("inputNames")
+  //channelNames = [:]
+  //if (oldInputNames){ 
+  //} 
+
+  pattern = ~/^IS(\d+)IN(.*)/
+  matches = msg =~ pattern
+  def number = matches[0][1]
+  def name = matches[0][2]
+  channelNames[number] = name
+  asJson = JsonOutput.toJson(channelNames)
+  updateDataValue("inputNames" , asJson)
+
+  // Notify all children that the map of names changed
+  getChildDevices()?.each { child ->
+    child.inputNamesUpdated(asJson)
+  }
+   
 }
 
 def handleChildResponse(String zone, String s) {
     // Your logic for handling child response
-    child = childDevice(getChildName(zone))
+    child = getChildDevice(getChildName(zone))
     if (!child) {
       log.debug("Received command for disabled zone ${zone} : ${s}")
     }
@@ -234,19 +273,3 @@ def logError(message) {
     log.error message
   }
 }
-
-
-/*
-start: Connected:
-
-init 
--- disconnect
--- schedule (connect)
-eventDisconnect
--- unschedule (cancel connect)
--- schedule (connect)
-
-connect
-
-
-*/
