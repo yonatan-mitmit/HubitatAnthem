@@ -14,7 +14,7 @@ metadata {
 
   preferences {
     // Add user-input preferences for the driver, such as IP address, port, authentication, etc.
-    input name: "ip", type: "text", title: "IP Address", description: "The IP address of the receiver", required: true, displayDuringSetup: true, 
+    input name: "ip", type: "text", title: "IP Address", description: "The IP address of the receiver", required: true, displayDuringSetup: true
     input name: "port", type: "number", title: "Port", description: "The port of the receiver", required: true, defaultValue: "14999", displayDuringSetup: true, range: "1..65535"
     input name: "enabledReceiverZones", type: "enum", title: "Enabled Receiver Zones", description: "The zones that are enabled on the receiver", required: true, multiple: true, options: [[1:"Main"], [2:"Zone 2"]], displayDuringSetup: true, defaultValue: [1]
     input name: "logLevel", type: "enum", title: "Log Level", description: "The level of logging to use", required: true, defaultValue: "INFO", options: ["DEBUG", "INFO", "WARN", "ERROR"], displayDuringSetup: false
@@ -264,6 +264,10 @@ def sendMsg(message) {
   // Send a message to the receiver
   logDebug("Sending message to receiver: ${message}")
   sendHubCommand(new hubitat.device.HubAction(message, hubitat.device.Protocol.TELNET))
+}
+
+def getVersion() {
+  "1.0.0"
 }
 
 // Logger
