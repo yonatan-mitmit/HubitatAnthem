@@ -1,0 +1,25 @@
+{
+    "author": "Yonatan Striem Amit",
+    "packageName": "Anthem MRX x40 Driver",
+	"minimumHEVersion": "2.3.5.135",
+	"version": "1.0.0",
+	"dateReleased": "2023-05-10",
+	"licenseFile": "https://raw.githubusercontent.com/yonatan-mitmit/HubitatAnthem/main/LICENSE",
+	"releaseNotes": "",
+	"drivers" : [
+		{
+            "id": "b0e48035-19a6-4c39-b07c-8734a3e4365c",
+			"name": "Anthem MRX x40 Receiver Driver",
+			"namespace": "mitmit",
+			"location": "https://raw.githubusercontent.com/yonatan-mitmit/HubitatAnthem/main/AnthemMain.groovy",
+			"required": true
+		},
+		{
+            "id": "b65788b3-9a34-47a2-852a-bd530e9b4376",
+			"name": "Anthem MRX x40 Receiver Zone Driver",
+			"namespace": "mitmit",
+			"location": "https://raw.githubusercontent.com/yonatan-mitmit/HubitatAnthem/main/AnthemChild.groovy",
+			"required": true
+		}
+	]
+}
